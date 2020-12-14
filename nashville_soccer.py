@@ -25,17 +25,15 @@ def cannotDetermineDefensiveTeam(ballLocation):
         return True
     
     # Ball is in midair
-    if ballLocation[2] > utils.feetToMeters(6): # approximate height of players 6 feet, if ball height is higher than player
+    if ballLocation[2] > utils.feetToMeters(10):
         return True
     
     return False
 
-# returns boolean whether in range of input of yards, whether player is in certain range of ball
 def playerWithinCertainYardsOfBall(playerLocation, ballLocation, yards):
     distanceInMeters = utils.distanceBetweenTwoPoints(playerLocation, ballLocation)
     return (utils.metersToYards(distanceInMeters) <= yards, distanceInMeters)
     
-# posession defined as offensive player within 2 yards of ball, basd off watching video footage + checks if offensive team had last touch
 def isAnOffensivePlayerInPossession(offensivePlayers, ballLocation):
     for player in offensivePlayers:
         playerLocation = player["xyz"]
@@ -123,7 +121,6 @@ for i in range(len(frames) - 1):
     offensivePlayers = data[offensive]
     nextDefensivePlayers = dataForNextFrame[defensive]
     
-    # get rid of this - if offensive team didn't have the last touch (aka possession)
     lastTouch = data["lastTouch"]
     if lastTouch == "away":
         if offensive != "awayPlayers":
@@ -151,7 +148,7 @@ for i in range(len(frames) - 1):
             "playerName": player["name"],
             "playerNumber": playerNumber,
             "distanceFromBall": onBallPressure["distanceFromBall"],
-            "changeInDistanceFromBall": onBallPressure["changeInDistanceFromBall"],
+            "changeInDistanceFromBall": onBallPressure["changeInDistanceFromBall"]
         })
 
 csv_columns = ["period", "gameClock", "wallClock", "team", "playerName", "playerNumber", "distanceFromBall", "changeInDistanceFromBall"]
