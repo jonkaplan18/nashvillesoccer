@@ -3,35 +3,39 @@ import pandas as pd
 import utils
 import csv
 
+# open tracking data
 with open('data/20200912-NSH-ATL_886b2a47-3249-4e95-8200-f7cdd8fbbf46_SecondSpectrum_Data.jsonl') as f:
     frames = f.read().splitlines()
 
 f.close()
-    
+
+# open metadata data
 with open('data/20200912-NSH-ATL_886b2a47-3249-4e95-8200-f7cdd8fbbf46_SecondSpectrum_Metadata.json') as f:
     metadata = json.load(f)
     
 f.close()
+
     
 def cannotDetermineDefensiveTeam(ballLocation):
     # No data for the ball location at that time frame
     if ballLocation == None:
         return True
     # Ball is in center of end lines
-    if ballLocation[1] == 0.0:
+    if ballLocation[0] == 0.0:
         return True
     
     # Ball is in midair
-    if ballLocation[2] > utils.feetToMeters(6):
+    if ballLocation[2] > utils.feetToMeters(6): # approximate height of players 6 feet, if ball height is higher than player
         return True
     
     return False
 
+# returns boolean whether in range of input of yards, whether player is in certain range of ball
 def playerWithinCertainYardsOfBall(playerLocation, ballLocation, yards):
     distanceInMeters = utils.distanceBetweenTwoPoints(playerLocation, ballLocation)
     return (utils.metersToYards(distanceInMeters) <= yards, distanceInMeters)
     
-
+# posession defined as offensive player within 2 yards of ball, basd off watching video footage + checks if offensive team had last touch
 def isAnOffensivePlayerInPossession(offensivePlayers, ballLocation):
     for player in offensivePlayers:
         playerLocation = player["xyz"]
@@ -73,6 +77,9 @@ def getOnBallPressures(offensivePlayers, defensivePlayers, ballLocation, nextDef
         return players
     return []
 
+def periodIsOdd(period):
+    return period % 2 != 0
+
 onBallPressuresCsvData = []
 
 for i in range(len(frames) - 1):
@@ -83,7 +90,7 @@ for i in range(len(frames) - 1):
     dataForNextFrame = json.loads(nextFrame)
     
     period = data["period"]
-    awayIsOnLeftSide = period == 1
+    awayIsOnLeftSide = periodIsOdd(period)
     
     # cannot determine if moving towards ball
     if dataForNextFrame["period"] != period:
@@ -98,9 +105,9 @@ for i in range(len(frames) - 1):
     if cannotDetermineDefensiveTeam(nextBallLocation):
         continue
     
-    ballY = ballLocation[1]
-    ballIsOnLeftSide = ballY < 0.0
-    ballIsStillOnLeftSide = nextBallLocation[1] < 0.0
+    ballX = ballLocation[0]
+    ballIsOnLeftSide = ballX < 0.0
+    ballIsStillOnLeftSide = nextBallLocation[0] < 0.0
     
     if ballIsOnLeftSide != ballIsStillOnLeftSide:
         continue
@@ -116,6 +123,15 @@ for i in range(len(frames) - 1):
     offensivePlayers = data[offensive]
     nextDefensivePlayers = dataForNextFrame[defensive]
     
+    # get rid of this - if offensive team didn't have the last touch (aka possession)
+    lastTouch = data["lastTouch"]
+    if lastTouch == "away":
+        if offensive != "awayPlayers":
+            continue
+    else:
+        if offensive != "homePlayers":
+            continue
+    
     onBallPressures = getOnBallPressures(offensivePlayers, defensivePlayers, ballLocation, nextDefensivePlayers)
         
     for onBallPressure in onBallPressures:
@@ -129,15 +145,15 @@ for i in range(len(frames) - 1):
         
         onBallPressuresCsvData.append({
             "period": data["period"],
-            "gameClock": data["gameClock"],
+            "gameClock": utils.convertToMinuteFormat(data["gameClock"]),
             "wallClock": data["wallClock"],
             "team": teamName,
             "playerName": player["name"],
             "playerNumber": playerNumber,
             "distanceFromBall": onBallPressure["distanceFromBall"],
-            "changeInDistanceFromBall": onBallPressure["changeInDistanceFromBall"]
+            "changeInDistanceFromBall": onBallPressure["changeInDistanceFromBall"],
         })
-    
+
 csv_columns = ["period", "gameClock", "wallClock", "team", "playerName", "playerNumber", "distanceFromBall", "changeInDistanceFromBall"]
 
 csv_file = "on-ball-pressures.csv"
